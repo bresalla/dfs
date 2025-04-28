@@ -14,17 +14,15 @@ type Graph struct {
 }
 
 func (g *Graph) AddEdges(edges []*Edge) {
-	for _, edge := range edges {
-		g.Edges = append(g.Edges, edge)
-	}
+	g.Edges = append(g.Edges, edges...)
 }
 
-func (g *Graph) dfs() []Edge {
+func (g *Graph) DFS() []Edge {
 	var stack *Stack = NewStack()
 	visited := make(map[string][]string)
 	path := []Edge{}
 	var from string
-	for g.UnprocessedEdgesAvailible(path) {
+	for g.unprocessedEdgesAvailible(path) {
 		stack = NewStack()
 		from = ""
 		current := g.selectStartNode(path)
@@ -40,7 +38,7 @@ func (g *Graph) dfs() []Edge {
 			fmt.Println("Path:", path)
 			from = current
 			// Assuming GetFirstUnvisitedChild returns the first unvisited child
-			if child, ok := g.GetFirstUnvisitedChild(current, visited); ok {
+			if child, ok := g.getNextUnvisitedChild(current, visited); ok {
 
 				stack.Push(current) // Push current node back to stack
 				fmt.Println("Push:", current)
@@ -54,8 +52,8 @@ func (g *Graph) dfs() []Edge {
 	return path
 }
 
-func (g *Graph) GetFirstUnvisitedChild(from string, visited map[string][]string) (string, bool) {
-	fmt.Println("GetFirstUnvisitedChild:", from)
+func (g *Graph) getNextUnvisitedChild(from string, visited map[string][]string) (string, bool) {
+	fmt.Println("getNextUnvisitedChild:", from)
 	for _, edge := range g.Edges {
 		listOfVisitedChildren, ok := visited[from]
 		if !ok {
@@ -115,7 +113,7 @@ func (g *Graph) checkAndAddToPath(path []Edge, current string, from string) []Ed
 	return path
 }
 
-func (g *Graph) UnprocessedEdgesAvailible(path []Edge) bool {
+func (g *Graph) unprocessedEdgesAvailible(path []Edge) bool {
 	for _, edge := range g.Edges {
 		if !slices.Contains(path, *edge) {
 			return true

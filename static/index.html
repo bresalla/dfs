@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>D3.js Simple App</title>
+        <script src="https://d3js.org/d3.v7.min.js"></script>
+    </head>
+    <body>
+        <h1>D3.js Static Example</h1>
+        <svg width="400" height="100"></svg>
+
+        <script>
+            const data = [10, 15, 20, 25, 30];
+
+            const svg = d3.select("svg");
+
+            svg.selectAll("rect")
+                .data(data)
+                .enter()
+                .append("rect")
+                .attr("x", (d, i) => i * 40)
+                .attr("y", (d) => 100 - d)
+                .attr("width", 30)
+                .attr("height", (d) => d)
+                .attr("fill", "steelblue");
+        </script>
+    </body>
+</html>

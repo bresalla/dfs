@@ -1,8 +1,9 @@
 package graph
 
 import (
-	"github.com/google/go-cmp/cmp"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestGraph_AddEdges(t *testing.T) {
@@ -104,7 +105,7 @@ func TestGraph_AddEdges(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			graph := &Graph{}
 			graph.AddEdges(tc.edges)
-			res := graph.dfs()
+			res := graph.DFS()
 			if diff := cmp.Diff(tc.expected, res); diff != "" {
 				t.Errorf("dfs() mismatch (-want +got):\n%s", diff)
 			}
