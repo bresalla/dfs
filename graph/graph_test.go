@@ -22,6 +22,14 @@ func TestGraph_AddEdges(t *testing.T) {
 			expected: []Edge{{To: "A"}, {From: "A", To: "B"}, {From: "B", To: "C"}},
 		},
 		{
+			name: "Two sided",
+			edges: []*Edge{
+				{From: "A", To: "B"},
+				{From: "B", To: "A"},
+			},
+			expected: []Edge{{To: "A"}, {From: "A", To: "B"}, {From: "B", To: "A"}},
+		},
+		{
 			name: "Disconnected graph",
 			edges: []*Edge{
 				{From: "A", To: "B"},

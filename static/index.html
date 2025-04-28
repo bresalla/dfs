@@ -1,28 +1,388 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <title>D3.js Simple App</title>
-        <script src="https://d3js.org/d3.v7.min.js"></script>
-    </head>
-    <body>
-        <h1>D3.js Static Example</h1>
-        <svg width="400" height="100"></svg>
+<head>
+  <meta charset="UTF-8">
+  <title>Graph DFS Visualization</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    body { 
+      display: flex; 
+      font-family: sans-serif;
+      padding: 20px;
+      box-sizing: border-box;
+      height: 100vh;
+    }
+    #inputPanel { 
+      width: 30%; 
+      padding-right: 20px;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      box-sizing: border-box;
+    }
+    #graphPanel { 
+      width: 70%; 
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+      height: calc(100vh - 40px);
+    }
+    svg {
+      width: 100%;
+      height: 100%;
+      cursor: move;
+      display: block;
+    }
+    textarea { 
+      width: 100%; 
+      height: 200px;
+      margin-bottom: 10px;
+      font-family: monospace;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      resize: none;
+      box-sizing: border-box;
+    }
+    button { 
+      width: 100%;
+      padding: 10px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    #dfsResult { 
+      margin-top: 10px;
+      padding: 15px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: #f8f8f8;
+      flex: 1;
+      overflow-y: auto;
+    }
+    #dfsResult h3 {
+      margin: 0 0 10px 0;
+      color: #333;
+    }
+    #dfsResult p {
+      margin: 0;
+      font-family: monospace;
+      font-size: 16px;
+      line-height: 1.4;
+      color: #444;
+      word-wrap: break-word;
+    }
+    #controls {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: white;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      z-index: 1000;
+    }
+    #controls button {
+      margin: 5px;
+      padding: 5px 10px;
+      width: auto;
+      margin-bottom: 0;
+    }
+  </style>
+</head>
+<body>
 
-        <script>
-            const data = [10, 15, 20, 25, 30];
+<div id="inputPanel">
+  <textarea id="jsonInput" spellcheck="false">[
+  {"From": "A", "To": "B"},
+  {"From": "B", "To": "C"},
+  {"From": "B", "To": "D"},
+  {"From": "C", "To": "A"},
+  {"From": "D", "To": "A"},
+  {"From": "E", "To": "F"}
+]</textarea>
+  <button onclick="applyAndCalculate()">Apply</button>
+  <div id="dfsResult"></div>
+</div>
 
-            const svg = d3.select("svg");
+<div id="graphPanel">
+  <div id="controls">
+    <button onclick="resetZoom()">Reset View</button>
+    <button onclick="zoomIn()">Zoom In</button>
+    <button onclick="zoomOut()">Zoom Out</button>
+  </div>
+  <svg></svg>
+</div>
 
-            svg.selectAll("rect")
-                .data(data)
-                .enter()
-                .append("rect")
-                .attr("x", (d, i) => i * 40)
-                .attr("y", (d) => 100 - d)
-                .attr("width", 30)
-                .attr("height", (d) => d)
-                .attr("fill", "steelblue");
-        </script>
-    </body>
+<script>
+let svg, g;
+let currentZoom;
+
+// Initialize the graph on page load
+document.addEventListener('DOMContentLoaded', function() {
+  initializeSVG();
+  applyAndCalculate();
+});
+
+function initializeSVG() {
+  // Set up the SVG
+  svg = d3.select("svg");
+  
+  // Clear any existing content
+  svg.selectAll("*").remove();
+  
+  // Create a group for zooming
+  g = svg.append("g");
+  
+  // Set up zoom behavior
+  currentZoom = d3.zoom()
+    .scaleExtent([0.1, 4])
+    .on("zoom", (event) => {
+      g.attr("transform", event.transform);
+    });
+  
+  // Apply zoom behavior to SVG
+  svg.call(currentZoom);
+  
+  // Initial transform
+  svg.call(currentZoom.transform, d3.zoomIdentity);
+}
+
+function resetZoom() {
+  svg.transition()
+    .duration(750)
+    .call(currentZoom.transform, d3.zoomIdentity);
+}
+
+function zoomIn() {
+  svg.transition()
+    .duration(750)
+    .call(currentZoom.scaleBy, 1.5);
+}
+
+function zoomOut() {
+  svg.transition()
+    .duration(750)
+    .call(currentZoom.scaleBy, 0.67);
+}
+
+function applyAndCalculate() {
+  drawGraph();
+  calculateDFS();
+}
+
+function drawGraph() {
+  initializeSVG();
+
+  let edges;
+  try {
+    edges = JSON.parse(document.getElementById("jsonInput").value);
+  } catch (e) {
+    alert("Invalid JSON!");
+    return;
+  }
+
+  // Create nodes set and links array
+  const nodesSet = new Set();
+  edges.forEach(edge => {
+    nodesSet.add(edge.From);
+    nodesSet.add(edge.To);
+  });
+
+  const nodes = Array.from(nodesSet).map(id => ({ id }));
+  const links = edges.map(edge => ({
+    source: edge.From,
+    target: edge.To
+  }));
+
+  // Create the simulation
+  const simulation = d3.forceSimulation(nodes)
+    .force("link", d3.forceLink(links).id(d => d.id).distance(100))
+    .force("charge", d3.forceManyBody().strength(-500))
+    .force("center", d3.forceCenter(400, 300));
+
+  // Add arrow marker
+  g.append("defs").append("marker")
+    .attr("id", "arrow")
+    .attr("viewBox", "0 -5 10 10")
+    .attr("refX", 25)
+    .attr("refY", 0)
+    .attr("markerWidth", 6)
+    .attr("markerHeight", 6)
+    .attr("orient", "auto")
+    .append("path")
+    .attr("d", "M0,-5L10,0L0,5")
+    .attr("fill", "#999");
+
+  // Draw links
+  const link = g.append("g")
+    .selectAll("line")
+    .data(links)
+    .join("line")
+    .attr("stroke", "#999")
+    .attr("stroke-width", 2)
+    .attr("marker-end", "url(#arrow)");
+
+  // Draw nodes
+  const node = g.append("g")
+    .selectAll("circle")
+    .data(nodes)
+    .join("circle")
+    .attr("r", 20)
+    .attr("fill", "pink");
+
+  // Add labels
+  const label = g.append("g")
+    .selectAll("text")
+    .data(nodes)
+    .join("text")
+    .text(d => d.id)
+    .attr("font-size", "14px")
+    .attr("text-anchor", "middle")
+    .attr("dy", "0.35em");
+
+  // Add drag behavior that works with zoom
+  function dragstarted(event) {
+    if (!event.active) simulation.alphaTarget(0.3).restart();
+    event.subject.fx = event.subject.x;
+    event.subject.fy = event.subject.y;
+  }
+
+  function dragged(event) {
+    event.subject.fx = event.x;
+    event.subject.fy = event.y;
+  }
+
+  function dragended(event) {
+    if (!event.active) simulation.alphaTarget(0);
+    event.subject.fx = null;
+    event.subject.fy = null;
+  }
+
+  node.call(d3.drag()
+    .on("start", dragstarted)
+    .on("drag", dragged)
+    .on("end", dragended));
+
+  // Update positions on each tick
+  simulation.on("tick", () => {
+    link
+      .attr("x1", d => d.source.x)
+      .attr("y1", d => d.source.y)
+      .attr("x2", d => {
+        const dx = d.target.x - d.source.x;
+        const dy = d.target.y - d.source.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        return d.source.x + (dx * (len - 25)) / len;
+      })
+      .attr("y2", d => {
+        const dx = d.target.x - d.source.x;
+        const dy = d.target.y - d.source.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        return d.source.y + (dy * (len - 25)) / len;
+      });
+
+    node
+      .attr("cx", d => d.x)
+      .attr("cy", d => d.y);
+
+    label
+      .attr("x", d => d.x)
+      .attr("y", d => d.y);
+  });
+}
+
+function calculateDFS() {
+    try {
+        const edges = JSON.parse(document.getElementById("jsonInput").value);
+        console.log("Sending edges to server:", edges);
+        
+        fetch('http://localhost:8080/calculate-dfs', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(edges)
+        })
+        .then(response => {
+            console.log("Server response:", response);
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(dfsResult => {
+            console.log("DFS result:", dfsResult);
+            
+            // Format the result as JSON
+            const formattedResult = JSON.stringify(dfsResult, null, 2);
+            
+            document.getElementById("dfsResult").innerHTML = `
+                <h3>DFS Traversal Result:</h3>
+                <pre style="margin: 0; white-space: pre-wrap; font-family: monospace;">${formattedResult}</pre>
+            `;
+
+            highlightDFSPath(dfsResult);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById("dfsResult").innerHTML = `
+                <h3>DFS Traversal Result:</h3>
+                <p style="color: red;">Error calculating DFS: ${error.message}</p>
+            `;
+        });
+
+    } catch (e) {
+        console.error("JSON parse error:", e);
+        alert("Error parsing JSON: " + e.message);
+    }
+}
+
+function highlightDFSPath(dfsPath) {
+    const svg = d3.select("svg");
+    
+    // Reset all elements to default state
+    svg.selectAll("circle")
+        .attr("fill", "pink");
+    
+    svg.selectAll("line")
+        .attr("stroke", "#999")
+        .attr("stroke-width", 2);
+    
+    // Highlight each edge in sequence
+    dfsPath.forEach((edge, index) => {
+        if (!edge.From) return;
+        
+        setTimeout(() => {
+            // Highlight the edge
+            svg.selectAll("line")
+                .filter(d => d.source.id === edge.From && d.target.id === edge.To)
+                .attr("stroke", "red")
+                .attr("stroke-width", 3);
+            
+            // Highlight the nodes
+            svg.selectAll("circle")
+                .filter(d => d.id === edge.From || d.id === edge.To)
+                .attr("fill", "red");
+        }, index * 500);
+    });
+}
+</script>
+
+</body>
 </html>
