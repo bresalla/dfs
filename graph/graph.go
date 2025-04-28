@@ -53,7 +53,7 @@ func (g *Graph) DFS() []Edge {
 }
 
 func (g *Graph) getNextUnvisitedChild(from string, visited map[string][]string) (string, bool) {
-	fmt.Println("getNextUnvisitedChild:", from)
+	fmt.Println("getNextUnvisitedChild for:", from)
 	for _, edge := range g.Edges {
 		listOfVisitedChildren, ok := visited[from]
 		if !ok {
@@ -102,11 +102,14 @@ func (g *Graph) checkAndAddToPath(path []Edge, current string, from string) []Ed
 	fmt.Println("Checking edge:", from, "->", current)
 	for _, edge := range g.Edges {
 		if edge.From == from && edge.To == current {
-			fmt.Println("Edge found:", edge.From, "->", edge.To)
-			path = append(path, Edge{
-				From: from,
-				To:   current,
-			})
+			fmt.Println("edge found:", edge.From, "->", edge.To)
+			if !slices.Contains(path, *edge) {
+				fmt.Println("and edge is not in path, adding it")
+				path = append(path, Edge{
+					From: from,
+					To:   current,
+				})
+			}
 			return path
 		}
 	}

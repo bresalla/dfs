@@ -105,6 +105,17 @@ func TestGraph_AddEdges(t *testing.T) {
 				{From: "C", To: "B"},
 			},
 			expected: []Edge{{To: "A"}, {From: "A", To: "B"}, {To: "C"}, {From: "C", To: "B"}},
+		}, {
+			name: "Different paths to the same node",
+			edges: []*Edge{
+				{From: "A", To: "B"},
+				{From: "C", To: "B"},
+				{From: "D", To: "B"},
+				{From: "E", To: "A"},
+				{From: "E", To: "C"},
+				{From: "E", To: "D"},
+			},
+			expected: []Edge{{To: "E"}, {From: "E", To: "A"}, {From: "A", To: "B"}, {From: "E", To: "C"}, {From: "C", To: "B"}, {From: "E", To: "D"}, {From: "D", To: "B"}},
 		},
 	}
 
