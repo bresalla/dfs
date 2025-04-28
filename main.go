@@ -60,7 +60,7 @@ func main() {
 
 		g := &graph.Graph{}
 		g.AddEdges(edgePtrs)
-		result := g.DFS()
+		result := g.DFS(graph.WithIndex())
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(result)

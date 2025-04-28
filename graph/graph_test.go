@@ -6,6 +6,42 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+func TestGraph_Indices(t *testing.T) {
+	t.Parallel()
+	testCases := []struct {
+		name     string
+		edges    []*Edge
+		expected []Edge
+	}{
+		{
+			name: "Simple path A -> B -> C",
+			edges: []*Edge{
+				{From: "A", To: "B"},
+				{From: "B", To: "C"},
+			},
+			expected: []Edge{{To: "A"}, {From: "A", To: "B"}, {From: "B", To: "C*"}},
+		},
+		{
+			name: "Two sided",
+			edges: []*Edge{
+				{From: "A", To: "B"},
+				{From: "B", To: "A"},
+			},
+			expected: []Edge{{To: "A"}, {From: "A", To: "B"}, {From: "B", To: "A*"}},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			graph := &Graph{}
+			graph.AddEdges(tc.edges)
+			res := graph.DFS(WithIndex())
+			if diff := cmp.Diff(tc.expected, res); diff != "" {
+				t.Errorf("indices() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
 func TestGraph_AddEdges(t *testing.T) {
 	t.Parallel()
 	testCases := []struct {
@@ -210,6 +246,82 @@ func TestGraph_selectStartNode(t *testing.T) {
 			}
 			if got := g.selectStartNode(nil); got != tt.want {
 				t.Errorf("selectStartNode() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGraph_checkLeaves(t *testing.T) {
+
+	type args struct {
+		path []Edge
+	}
+	tests := []struct {
+		name string
+		path []Edge
+		want []Edge
+	}{
+		{
+			name: "Two leaves",
+			path: []Edge{
+				{To: "A"},
+				{From: "A", To: "B"},
+				{To: "C"},
+				{From: "C", To: "D"},
+			},
+			want: []Edge{
+				{To: "A"},
+				{From: "A", To: "B*"},
+				{To: "C"},
+				{From: "C", To: "D*"},
+			},
+		},
+		{
+			name: "One leaf",
+			path: []Edge{
+				{To: "A"},
+				{From: "A", To: "B"},
+				{To: "C"},
+				{From: "C", To: "D"},
+				{From: "D", To: "E"},
+			},
+			want: []Edge{
+				{To: "A"},
+				{From: "A", To: "B*"},
+				{To: "C"},
+				{From: "C", To: "D"},
+				{From: "D", To: "E*"},
+			},
+		},
+		{
+			name: "Tree with cycles",
+			path: []Edge{
+				{To: "A"},
+				{From: "A", To: "B"},
+				{To: "C"},
+				{From: "C", To: "D"},
+				{From: "D", To: "E"},
+				{From: "E", To: "C"},
+			},
+			want: []Edge{
+				{To: "A"},
+				{From: "A", To: "B*"},
+				{To: "C"},
+				{From: "C", To: "D"},
+				{From: "D", To: "E"},
+				{From: "E", To: "C*"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := &Graph{
+				Edges:        []*Edge{},
+				indexEnabled: true,
+			}
+			got := g.markLeaves(tt.path)
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("checkLeaves() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

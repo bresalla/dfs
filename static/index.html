@@ -11,23 +11,26 @@
       padding: 0;
       overflow: hidden;
     }
-    body { 
-      display: flex; 
+
+    body {
+      display: flex;
       font-family: sans-serif;
       padding: 20px;
       box-sizing: border-box;
       height: 100vh;
     }
-    #inputPanel { 
-      width: 30%; 
+
+    #inputPanel {
+      width: 30%;
       padding-right: 20px;
       display: flex;
       flex-direction: column;
       height: 100%;
       box-sizing: border-box;
     }
-    #graphPanel { 
-      width: 70%; 
+
+    #graphPanel {
+      width: 70%;
       border: 1px solid #ccc;
       border-radius: 4px;
       overflow: hidden;
@@ -40,8 +43,9 @@
       cursor: move;
       display: block;
     }
-    textarea { 
-      width: 100%; 
+
+    textarea {
+      width: 100%;
       height: 200px;
       margin-bottom: 10px;
       font-family: monospace;
@@ -51,7 +55,8 @@
       resize: none;
       box-sizing: border-box;
     }
-    button { 
+
+    button {
       width: 100%;
       padding: 10px;
       background: #4CAF50;
@@ -65,7 +70,8 @@
     button:hover {
       background: #45a049;
     }
-    #dfsResult { 
+
+    #dfsResult {
       margin-top: 10px;
       padding: 15px;
       border: 1px solid #ccc;
@@ -78,12 +84,14 @@
       margin: 0 0 10px 0;
       color: #333;
     }
-    #dfsResult p {
+
+    #dfsResult pre {
       margin: 0;
       font-family: monospace;
       font-size: 16px;
       line-height: 1.4;
       color: #444;
+      white-space: pre-wrap;
       word-wrap: break-word;
     }
     #controls {
@@ -130,258 +138,315 @@
 </div>
 
 <script>
-let svg, g;
-let currentZoom;
+  let svg, g;
+  let nodes = [];
+  let links = [];
+  let currentZoom;
 
-// Initialize the graph on page load
-document.addEventListener('DOMContentLoaded', function() {
-  initializeSVG();
-  applyAndCalculate();
-});
-
-function initializeSVG() {
-  // Set up the SVG
-  svg = d3.select("svg");
-  
-  // Clear any existing content
-  svg.selectAll("*").remove();
-  
-  // Create a group for zooming
-  g = svg.append("g");
-  
-  // Set up zoom behavior
-  currentZoom = d3.zoom()
-    .scaleExtent([0.1, 4])
-    .on("zoom", (event) => {
-      g.attr("transform", event.transform);
-    });
-  
-  // Apply zoom behavior to SVG
-  svg.call(currentZoom);
-  
-  // Initial transform
-  svg.call(currentZoom.transform, d3.zoomIdentity);
-}
-
-function resetZoom() {
-  svg.transition()
-    .duration(750)
-    .call(currentZoom.transform, d3.zoomIdentity);
-}
-
-function zoomIn() {
-  svg.transition()
-    .duration(750)
-    .call(currentZoom.scaleBy, 1.5);
-}
-
-function zoomOut() {
-  svg.transition()
-    .duration(750)
-    .call(currentZoom.scaleBy, 0.67);
-}
-
-function applyAndCalculate() {
-  drawGraph();
-  calculateDFS();
-}
-
-function drawGraph() {
-  initializeSVG();
-
-  let edges;
-  try {
-    edges = JSON.parse(document.getElementById("jsonInput").value);
-  } catch (e) {
-    alert("Invalid JSON!");
-    return;
-  }
-
-  // Create nodes set and links array
-  const nodesSet = new Set();
-  edges.forEach(edge => {
-    nodesSet.add(edge.From);
-    nodesSet.add(edge.To);
+  document.addEventListener('DOMContentLoaded', function () {
+    initializeSVG();
+    applyAndCalculate();
   });
 
-  const nodes = Array.from(nodesSet).map(id => ({ id }));
-  const links = edges.map(edge => ({
-    source: edge.From,
-    target: edge.To
-  }));
+  function initializeSVG() {
+    svg = d3.select("svg");
+    svg.selectAll("*").remove();
+    g = svg.append("g");
 
-  // Create the simulation
-  const simulation = d3.forceSimulation(nodes)
-    .force("link", d3.forceLink(links).id(d => d.id).distance(100))
-    .force("charge", d3.forceManyBody().strength(-500))
-    .force("center", d3.forceCenter(400, 300));
+    currentZoom = d3.zoom()
+            .scaleExtent([0.1, 4])
+            .on("zoom", (event) => {
+              g.attr("transform", event.transform);
+            });
 
-  // Add arrow marker
-  g.append("defs").append("marker")
-    .attr("id", "arrow")
-    .attr("viewBox", "0 -5 10 10")
-    .attr("refX", 25)
-    .attr("refY", 0)
-    .attr("markerWidth", 6)
-    .attr("markerHeight", 6)
-    .attr("orient", "auto")
-    .append("path")
-    .attr("d", "M0,-5L10,0L0,5")
-    .attr("fill", "#999");
-
-  // Draw links
-  const link = g.append("g")
-    .selectAll("line")
-    .data(links)
-    .join("line")
-    .attr("stroke", "#999")
-    .attr("stroke-width", 2)
-    .attr("marker-end", "url(#arrow)");
-
-  // Draw nodes
-  const node = g.append("g")
-    .selectAll("circle")
-    .data(nodes)
-    .join("circle")
-    .attr("r", 20)
-    .attr("fill", "pink");
-
-  // Add labels
-  const label = g.append("g")
-    .selectAll("text")
-    .data(nodes)
-    .join("text")
-    .text(d => d.id)
-    .attr("font-size", "14px")
-    .attr("text-anchor", "middle")
-    .attr("dy", "0.35em");
-
-  // Add drag behavior that works with zoom
-  function dragstarted(event) {
-    if (!event.active) simulation.alphaTarget(0.3).restart();
-    event.subject.fx = event.subject.x;
-    event.subject.fy = event.subject.y;
+    svg.call(currentZoom);
+    svg.call(currentZoom.transform, d3.zoomIdentity);
   }
 
-  function dragged(event) {
-    event.subject.fx = event.x;
-    event.subject.fy = event.y;
+  function resetZoom() {
+    svg.transition()
+            .duration(750)
+            .call(currentZoom.transform, d3.zoomIdentity);
   }
 
-  function dragended(event) {
-    if (!event.active) simulation.alphaTarget(0);
-    event.subject.fx = null;
-    event.subject.fy = null;
+  function zoomIn() {
+    svg.transition()
+            .duration(750)
+            .call(currentZoom.scaleBy, 1.5);
   }
 
-  node.call(d3.drag()
-    .on("start", dragstarted)
-    .on("drag", dragged)
-    .on("end", dragended));
+  function zoomOut() {
+    svg.transition()
+            .duration(750)
+            .call(currentZoom.scaleBy, 0.67);
+  }
 
-  // Update positions on each tick
-  simulation.on("tick", () => {
-    link
-      .attr("x1", d => d.source.x)
-      .attr("y1", d => d.source.y)
-      .attr("x2", d => {
-        const dx = d.target.x - d.source.x;
-        const dy = d.target.y - d.source.y;
-        const len = Math.sqrt(dx * dx + dy * dy);
-        return d.source.x + (dx * (len - 25)) / len;
-      })
-      .attr("y2", d => {
-        const dx = d.target.x - d.source.x;
-        const dy = d.target.y - d.source.y;
-        const len = Math.sqrt(dx * dx + dy * dy);
-        return d.source.y + (dy * (len - 25)) / len;
-      });
+  function applyAndCalculate() {
+    drawGraph();
+    calculateDFS();
+  }
 
-    node
-      .attr("cx", d => d.x)
-      .attr("cy", d => d.y);
+  function drawGraph() {
+    initializeSVG();
 
-    label
-      .attr("x", d => d.x)
-      .attr("y", d => d.y);
-  });
-}
-
-function calculateDFS() {
+    let edges;
     try {
-        const edges = JSON.parse(document.getElementById("jsonInput").value);
-        console.log("Sending edges to server:", edges);
-        
-        fetch('http://localhost:8080/calculate-dfs', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(edges)
-        })
-        .then(response => {
-            console.log("Server response:", response);
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
-        .then(dfsResult => {
-            console.log("DFS result:", dfsResult);
-            
-            // Format the result as JSON
-            const formattedResult = JSON.stringify(dfsResult, null, 2);
-            
-            document.getElementById("dfsResult").innerHTML = `
-                <h3>DFS Traversal Result:</h3>
-                <pre style="margin: 0; white-space: pre-wrap; font-family: monospace;">${formattedResult}</pre>
-            `;
+      edges = JSON.parse(document.getElementById("jsonInput").value);
+    } catch (e) {
+      alert("Invalid JSON!");
+      return;
+    }
 
-            highlightDFSPath(dfsResult);
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            document.getElementById("dfsResult").innerHTML = `
-                <h3>DFS Traversal Result:</h3>
-                <p style="color: red;">Error calculating DFS: ${error.message}</p>
-            `;
-        });
+    const nodesSet = new Set();
+    edges.forEach(edge => {
+      nodesSet.add(edge.From);
+      nodesSet.add(edge.To);
+    });
+
+    nodes = Array.from(nodesSet).map(id => ({id}));
+    links = edges.map(edge => ({
+      source: edge.From,
+      target: edge.To
+    }));
+
+    const simulation = d3.forceSimulation(nodes)
+            .force("link", d3.forceLink(links).id(d => d.id).distance(100))
+            .force("charge", d3.forceManyBody().strength(-500))
+            .force("center", d3.forceCenter(400, 300));
+
+    g.append("defs").append("marker")
+            .attr("id", "arrow")
+            .attr("viewBox", "0 -5 10 10")
+            .attr("refX", 25)
+            .attr("refY", 0)
+            .attr("markerWidth", 6)
+            .attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,-5L10,0L0,5")
+            .attr("fill", "#999");
+
+    const link = g.append("g")
+            .selectAll("line")
+            .data(links)
+            .join("line")
+            .attr("stroke", "#999")
+            .attr("stroke-width", 2)
+            .attr("marker-end", "url(#arrow)");
+
+    const node = g.append("g")
+            .selectAll("circle")
+            .data(nodes)
+            .join("circle")
+            .attr("r", 20)
+            .attr("fill", "pink");
+
+    const label = g.append("g")
+            .selectAll("text")
+            .data(nodes)
+            .join("text")
+            .text(d => d.id)
+            .attr("font-size", "14px")
+            .attr("text-anchor", "middle")
+            .attr("dy", "0.35em");
+
+    function dragstarted(event) {
+      if (!event.active) simulation.alphaTarget(0.3).restart();
+      event.subject.fx = event.subject.x;
+      event.subject.fy = event.subject.y;
+    }
+
+    function dragged(event) {
+      event.subject.fx = event.x;
+      event.subject.fy = event.y;
+    }
+
+    function dragended(event) {
+      if (!event.active) simulation.alphaTarget(0);
+      event.subject.fx = null;
+      event.subject.fy = null;
+    }
+
+    node.call(d3.drag()
+            .on("start", dragstarted)
+            .on("drag", dragged)
+            .on("end", dragended));
+
+    simulation.on("tick", () => {
+      link
+              .attr("x1", d => d.source.x)
+              .attr("y1", d => d.source.y)
+              .attr("x2", d => {
+                const dx = d.target.x - d.source.x;
+                const dy = d.target.y - d.source.y;
+                const len = Math.sqrt(dx * dx + dy * dy);
+                return d.source.x + (dx * (len - 25)) / len;
+              })
+              .attr("y2", d => {
+                const dx = d.target.x - d.source.x;
+                const dy = d.target.y - d.source.y;
+                const len = Math.sqrt(dx * dx + dy * dy);
+                return d.source.y + (dy * (len - 25)) / len;
+              });
+
+      node
+              .attr("cx", d => d.x)
+              .attr("cy", d => d.y);
+
+      label
+              .attr("x", d => d.x)
+              .attr("y", d => d.y);
+    });
+  }
+
+  function calculateDFS() {
+    try {
+      const edges = JSON.parse(document.getElementById("jsonInput").value);
+
+      fetch('http://localhost:8080/calculate-dfs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(edges)
+      })
+              .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+              })
+              .then(dfsResult => {
+                const formattedResult = JSON.stringify(dfsResult, null, 2);
+                document.getElementById("dfsResult").innerHTML = `
+        <h3>DFS Traversal Result:</h3>
+        <pre>${formattedResult}</pre>
+      `;
+
+                // 🛠 NEW: redraw graph based on dfsResult
+                drawGraphFromDFS(dfsResult);
+              })
+              .catch(error => {
+                document.getElementById("dfsResult").innerHTML = `
+        <h3>DFS Traversal Result:</h3>
+        <p style="color: red;">Error calculating DFS: ${error.message}</p>
+      `;
+              });
 
     } catch (e) {
-        console.error("JSON parse error:", e);
-        alert("Error parsing JSON: " + e.message);
+      alert("Error parsing JSON: " + e.message);
     }
-}
+  }
 
-function highlightDFSPath(dfsPath) {
-    const svg = d3.select("svg");
-    
-    // Reset all elements to default state
-    svg.selectAll("circle")
-        .attr("fill", "pink");
-    
-    svg.selectAll("line")
-        .attr("stroke", "#999")
-        .attr("stroke-width", 2);
-    
-    // Highlight each edge in sequence
-    dfsPath.forEach((edge, index) => {
-        if (!edge.From) return;
-        
-        setTimeout(() => {
-            // Highlight the edge
-            svg.selectAll("line")
-                .filter(d => d.source.id === edge.From && d.target.id === edge.To)
-                .attr("stroke", "red")
-                .attr("stroke-width", 3);
-            
-            // Highlight the nodes
-            svg.selectAll("circle")
-                .filter(d => d.id === edge.From || d.id === edge.To)
-                .attr("fill", "red");
-        }, index * 500);
+  function drawGraphFromDFS(dfsEdges) {
+    initializeSVG();
+
+    const nodesSet = new Set();
+    dfsEdges.forEach(edge => {
+      if (edge.From) nodesSet.add(edge.From.replace("*", ""));
+      if (edge.To) nodesSet.add(edge.To.replace("*", ""));
     });
-}
+
+    nodes = Array.from(nodesSet).map(id => ({id}));
+    links = dfsEdges.filter(edge => edge.From).map(edge => ({
+      source: edge.From.replace("*", ""),
+      target: edge.To.replace("*", "")
+    }));
+
+    const nodeLabelMap = new Map();
+
+
+    const simulation = d3.forceSimulation(nodes)
+            .force("link", d3.forceLink(links).id(d => d.id).distance(100))
+            .force("charge", d3.forceManyBody().strength(-500))
+            .force("center", d3.forceCenter(400, 300));
+
+    g.append("defs").append("marker")
+            .attr("id", "arrow")
+            .attr("viewBox", "0 -5 10 10")
+            .attr("refX", 25)
+            .attr("refY", 0)
+            .attr("markerWidth", 6)
+            .attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,-5L10,0L0,5")
+            .attr("fill", "#999");
+
+    const link = g.append("g")
+            .selectAll("line")
+            .data(links)
+            .join("line")
+            .attr("stroke", "#999")
+            .attr("stroke-width", 2)
+            .attr("marker-end", "url(#arrow)");
+
+    const node = g.append("g")
+            .selectAll("circle")
+            .data(nodes)
+            .join("circle")
+            .attr("r", 20)
+            .attr("fill", "pink");
+
+    const label = g.append("g")
+            .selectAll("text")
+            .data(nodes)
+            .join("text")
+            .text(d => nodeLabelMap.get(d.id) || d.id)
+            .attr("font-size", "14px")
+            .attr("text-anchor", "middle")
+            .attr("dy", "0.35em");
+
+    function dragstarted(event) {
+      if (!event.active) simulation.alphaTarget(0.3).restart();
+      event.subject.fx = event.subject.x;
+      event.subject.fy = event.subject.y;
+    }
+
+    function dragged(event) {
+      event.subject.fx = event.x;
+      event.subject.fy = event.y;
+    }
+
+    function dragended(event) {
+      if (!event.active) simulation.alphaTarget(0);
+      event.subject.fx = null;
+      event.subject.fy = null;
+    }
+
+    node.call(d3.drag()
+            .on("start", dragstarted)
+            .on("drag", dragged)
+            .on("end", dragended));
+
+    simulation.on("tick", () => {
+      link
+              .attr("x1", d => d.source.x)
+              .attr("y1", d => d.source.y)
+              .attr("x2", d => {
+                const dx = d.target.x - d.source.x;
+                const dy = d.target.y - d.source.y;
+                const len = Math.sqrt(dx * dx + dy * dy);
+                return d.source.x + (dx * (len - 25)) / len;
+              })
+              .attr("y2", d => {
+                const dx = d.target.x - d.source.x;
+                const dy = d.target.y - d.source.y;
+                const len = Math.sqrt(dx * dx + dy * dy);
+                return d.source.y + (dy * (len - 25)) / len;
+              });
+
+      node
+              .attr("cx", d => d.x)
+              .attr("cy", d => d.y);
+
+      label
+              .attr("x", d => d.x)
+              .attr("y", d => d.y);
+    });
+  }
+
+
+
+
 </script>
 
 </body>

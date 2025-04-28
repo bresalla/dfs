@@ -10,14 +10,26 @@ type Edge struct {
 	To   string
 }
 type Graph struct {
-	Edges []*Edge
+	Edges        []*Edge
+	indexEnabled bool
 }
 
 func (g *Graph) AddEdges(edges []*Edge) {
 	g.Edges = append(g.Edges, edges...)
 }
 
-func (g *Graph) DFS() []Edge {
+type Option func(*Graph)
+
+func WithIndex() Option {
+	return func(g *Graph) {
+		g.indexEnabled = true
+	}
+}
+
+func (g *Graph) DFS(options ...Option) []Edge {
+	for _, o := range options {
+		o(g)
+	}
 	var stack *Stack = NewStack()
 	visited := make(map[string][]string)
 	path := []Edge{}
@@ -47,6 +59,9 @@ func (g *Graph) DFS() []Edge {
 				visited[current] = append(visited[current], child)
 			}
 		}
+	}
+	if g.indexEnabled {
+		path = g.markLeaves(path)
 	}
 
 	return path
@@ -123,4 +138,34 @@ func (g *Graph) unprocessedEdgesAvailible(path []Edge) bool {
 		}
 	}
 	return false
+}
+
+// for tree like this:
+// {To: "A"},
+// {From: "A", To: "B"},
+// {To: "C"},
+// {From: "C", To: "D"},
+// find all leaves and mark them with *
+func (g *Graph) markLeaves(path []Edge) []Edge {
+	// Build a map: node -> first index where it appears as 'From'
+	fromIndex := make(map[string]int)
+
+	for i, e := range path {
+		if e.From != "" {
+			// Only record the first appearance
+			if _, exists := fromIndex[e.From]; !exists {
+				fromIndex[e.From] = i
+			}
+		}
+	}
+
+	for i, edge := range path {
+		firstFromIdx, exists := fromIndex[edge.To]
+		if !exists || firstFromIdx <= i {
+			// If 'To' is never used as 'From' or only used before (or at) current position -> mark as leaf
+			path[i].To = edge.To + "*"
+		}
+	}
+
+	return path
 }
